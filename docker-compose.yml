@@ -8,8 +8,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: fastApi
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -28,6 +26,9 @@ services:
       SECRET_KEY: change-me-in-production
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      # Set this to your frontend URL when deploying to EC2:
+      #   ALLOWED_ORIGINS=http://your-frontend-ip
+      ALLOWED_ORIGINS: "http://localhost:3000"
     depends_on:
       db:
         condition: service_healthy
