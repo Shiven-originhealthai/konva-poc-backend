@@ -21,11 +21,14 @@ Owner= Annotated[int,Depends(get_current_user_id)]
 
 
 class SaveCanvasRequest(BaseModel):
-    canvasUrl:    Optional[str] = None  
-    thumbnail_id: Optional[int] = None
-    lines:        Optional[list] = None
-    shapes:       Optional[list] = None
-    text_items:   Optional[list] = None
+    canvasUrl:Optional[str] = None  
+    thumbnail_id:Optional[int] = None
+    lines:Optional[list] = None
+    shapes:Optional[list] = None
+    text_items:Optional[list] = None
+
+class selectedCanvasImageIdArray(BaseModel):
+    selectedCanvasImageIdArray:list[int]
 
 
 def _decode_base64(data: str) -> bytes:
@@ -106,8 +109,8 @@ def save_canvas(body: SaveCanvasRequest, user_id: Owner, db: DB):
 
         _upsert_state(
             db, thumbnail.id, user_id,
-            json.dumps(body.lines      or []),
-            json.dumps(body.shapes     or []),
+            json.dumps(body.lines or []),
+            json.dumps(body.shapes or []),
             json.dumps(body.text_items or []),
         )
         msg = "Canvas updated" if is_edit else "Canvas saved"
@@ -146,3 +149,31 @@ def get_canvas_state(thumbnail_id: int, user_id: Owner, db: DB):
             "textItems":json.loads(row.text_items or "[]"),
         }
     }
+
+@router.post('/delete')
+def deleteCanvas(body: selectedCanvasImageIdArray, db: DB):
+    selectedArrayIds = body.selectedCanvasImageIdArray
+
+    if not selectedArrayIds:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+
+    try:
+        db.query(CanvasState).filter(
+            CanvasState.thumbnail_id.in_(selectedArrayIds)
+        ).delete(synchronize_session=False)
+
+        db.query(Thumbnail).filter(
+            Thumbnail.id.in_(selectedArrayIds)
+        ).delete(synchronize_session=False)
+
+        db.commit()
+        return {"message": f"Deleted {len(selectedArrayIds)} canvas(es) successfully"}
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete: {str(e)}")
+
+
